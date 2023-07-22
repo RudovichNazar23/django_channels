@@ -1,83 +1,67 @@
 import json
 
-from asgiref.sync import async_to_sync
-from channels.generic.websocket import WebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
+from asgiref.sync import sync_to_async
 from django.contrib.auth.models import User
-from .models import Message
+from .models import Room, Message
 
 
-class ChatConsumer(WebsocketConsumer):
+class ChatConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = 'chat_%s' % self.room_name
 
-    def fetch_messages(self, data):
-        author = User.objects.get(username=data["from"])
-        author_messages = Message.objects.get(author=author)
-        messages = author_messages.last_messages()
-        content = {
-            "messages": self.messages_to_json(messages)
-        }
-        self.send_message(content)
-
-    def new_message(self, data):
-        author = data["from"]
-        author_user = User.objects.filter(username=author)[0]
-        message = Message.objects.create(
-            author=author_user,
-            message=data["message"]
-            )
-        content = {
-            "command": "new_message",
-            "message": self.message_to_json(message)
-        }
-        return self.send_chat_message(content)
-
-    def messages_to_json(self, messages):
-        result = []
-
-        for message in messages:
-            result.append(self.message_to_json(message))
-        return result
-
-    def message_to_json(self, message):
-        return {
-            "author": message.author,
-            "message": message.message,
-            "date_created": message.date_created
-        }
-
-    commands = {
-        "fetch_messages": fetch_messages,
-        "new_message": new_message
-    }
-
-    def connect(self):
-        self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.room_group_name = "chat_%s" % self.room_name
-
-        async_to_sync(self.channel_layer.group_add)(
-            self.room_group_name, self.channel_name
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
         )
 
-        self.accept()
+        await self.accept()
 
-    def disconnect(self, close_code):
-        async_to_sync(self.channel_layer.group_discard)(
-            self.room_group_name, self.channel_name
+    async def disconnect(self):
+        await self.channel_layer.group_discard(
+            self.room_group_name,
+            self.channel_name
         )
 
-    def receive(self, text_data):
+    # Receive message from WebSocket
+    async def receive(self, text_data):
         data = json.loads(text_data)
-        self.commands[data["command"]](self, data)
+        message = data['message']
+        username = data['username']
+        room = data['room']
 
-    def send_chat_message(self, message):
+        await self.save_message(username, room, message)
 
-        async_to_sync(self.channel_layer.group_send)(
-            self.room_group_name, {"type": "chat_message", "message": message}
+        # Send message to room group
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': message,
+                'username': username
+            }
         )
 
-    def send_message(self, message):
-        self.send(text_data=json.dumps(message))
+    # Receive message from room group
+    async def chat_message(self, event):
+        message = event['message']
+        username = event['username']
 
-    def chat_message(self, event):
-        message = event["message"]
-        self.send(text_data=json.dumps(message))
+        # Send message to WebSocket
+        await self.send(text_data=json.dumps({
+            'message': message,
+            'username': username
+        }))
+
+    @sync_to_async
+    def save_message(self, username, room, message):
+        user = User.objects.get(username=username)
+        room = Room.objects.get(slug=room)
+
+        Message.objects.create(author=user, room=room, message=message)
+
+
+
+
 

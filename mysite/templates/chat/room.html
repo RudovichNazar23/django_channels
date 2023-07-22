@@ -9,7 +9,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-
+        <div class="">
+            <a href="/rooms/rooms">
+                <button class="btn btn-primary rounded-xl btn-block m-3">
+                    Back
+                </button>
+            </a>
+        </div>
         <div class="p-10 lg:p-20 text-center">
             <h1 class="text-3xl lg:text-6xl text-white">{{ room.name }}</h1>
         </div>
@@ -30,6 +36,7 @@
             >Submit</button>
         </form>
     </div>
+
 
 
     {{ room.slug|json_script:"json-roomname" }}

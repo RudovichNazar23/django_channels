@@ -1,16 +1,18 @@
+from django.contrib.auth.views import LogoutView
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
+
 from .forms import RegistrationForm, LoginForm
 from django.contrib.auth import login, authenticate
 
+from chat.views import room_list
+
 
 def welcome(request):
+    if request.user.is_authenticated:
+        return room_list(request)
     return render(request, "registration/welcome.html")
-
-
-def home_page(request):
-    return render(request, "registration/home_page.html", {})
 
 
 class RegistrationView(View):
@@ -58,4 +60,9 @@ class LoginView(View):
             else:
                 messages.error(request, "You have wrong email or password, please try again...")
                 return render(request, self.template_name, {"form": form})
+
+
+class SignOutView(LogoutView):
+    template_name = "client_app/logout.html"
+    next_page = "/"
 

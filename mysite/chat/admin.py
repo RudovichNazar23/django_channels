@@ -3,4 +3,3 @@ from .models import Message, Room
 
 admin.site.register(Room)
 admin.site.register(Message)
-

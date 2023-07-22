@@ -33,14 +33,14 @@ class RegistrationView(View):
             password = form.cleaned_data.get("password1")
             user = authenticate(username=username, password=password)
             login(request, user)
-            return redirect("/home_page")
+            return redirect("rooms/rooms")
         else:
             return render(request, self.template_name, context)
 
 
 class LoginView(View):
     template_name = "registration/login.html"
-    success_url = "home_page"
+    success_url = "rooms/rooms"
 
     def get(self, request):
         form = LoginForm()
